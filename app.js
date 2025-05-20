@@ -1,4 +1,4 @@
-const express = require('express');
+const express = require('express'); 
 const bodyParser = require('body-parser');
 const app = express();
 
@@ -69,9 +69,9 @@ app.use((req, res) => {
     res.status(404).send('Ruta no encontrada');
 });
 
-// Puerto
-const port = 3000;
+// Usar puerto de entorno (para Render) o 3000 localmente
+const port = process.env.PORT || 3000;
 app.listen(port, () => {
-    console.log(`Servidor escuchando en http://localhost:${port}`);
+    console.log(`Servidor escuchando en el puerto ${port}`);
 });
 
