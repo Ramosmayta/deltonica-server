@@ -7,14 +7,18 @@ let historialCoordenadas = []; // Guarda hasta 50 puntos
 // Middleware para manejar datos binarios
 app.use(bodyParser.raw({ type: 'application/vnd.teltonika.nmea', limit: '1mb' }));
 
-// Función para convertir coordenadas NMEA a decimal
-function convertirCoordenadas(nmea, direccion) {
-    const grados = parseInt(nmea.slice(0, direccion === 'lat' ? 2 : 3));
-    const minutos = parseFloat(nmea.slice(direccion === 'lat' ? 2 : 3));
+// Función para convertir coordenadas NMEA a decimal, incluyendo dirección (N/S, E/W)
+function convertirCoordenadas(nmea, direccionCardinal, tipo) {
+    if (!nmea || !direccionCardinal) return null;
+
+    const grados = parseInt(nmea.slice(0, tipo === 'lat' ? 2 : 3));
+    const minutos = parseFloat(nmea.slice(tipo === 'lat' ? 2 : 3));
     let decimal = grados + minutos / 60;
 
-    if (direccion === 'lat' && (nmea.includes('S') || nmea.endsWith('S'))) decimal *= -1;
-    if (direccion === 'lon' && (nmea.includes('W') || nmea.endsWith('W'))) decimal *= -1;
+    if ((tipo === 'lat' && direccionCardinal === 'S') ||
+        (tipo === 'lon' && direccionCardinal === 'W')) {
+        decimal *= -1;
+    }
 
     return decimal.toFixed(6);
 }
@@ -93,15 +97,16 @@ app.post('/gps-data', (req, res) => {
     for (let linea of lineas) {
         if (linea.startsWith('$GPGGA')) {
             const partes = linea.split(',');
-            const lat = convertirCoordenadas(partes[2], 'lat');
-            const lon = convertirCoordenadas(partes[4], 'lon');
+            const lat = convertirCoordenadas(partes[2], partes[3], 'lat');
+            const lon = convertirCoordenadas(partes[4], partes[5], 'lon');
             const alt = partes[9];
 
-            const nuevaLectura = { lat, lon, alt };
-
-            historialCoordenadas.push(nuevaLectura);
-            if (historialCoordenadas.length > 50) {
-                historialCoordenadas.shift(); // Mantiene solo los últimos 50
+            if (lat && lon) {
+                const nuevaLectura = { lat, lon, alt };
+                historialCoordenadas.push(nuevaLectura);
+                if (historialCoordenadas.length > 50) {
+                    historialCoordenadas.shift(); // Mantiene solo los últimos 50
+                }
             }
 
             break; // Toma solo la primera línea válida
