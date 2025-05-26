@@ -2,14 +2,12 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const app = express();
 
-let ultimaLectura = null;
-let historialLecturas = [];
+let historialCoordenadas = []; // Guarda hasta 50 puntos
 
-// Middleware
+// Middleware para manejar datos binarios
 app.use(bodyParser.raw({ type: 'application/vnd.teltonika.nmea', limit: '1mb' }));
-app.use('/leaflet', express.static(__dirname + '/node_modules/leaflet/dist')); // Servir Leaflet local
 
-// Conversión de coordenadas
+// Función para convertir coordenadas NMEA a decimal
 function convertirCoordenadas(nmea, direccion) {
     const grados = parseInt(nmea.slice(0, direccion === 'lat' ? 2 : 3));
     const minutos = parseFloat(nmea.slice(direccion === 'lat' ? 2 : 3));
@@ -21,14 +19,15 @@ function convertirCoordenadas(nmea, direccion) {
     return decimal.toFixed(6);
 }
 
-// Página principal con Leaflet
+// Página principal con mapa Leaflet
 app.get('/', (req, res) => {
     res.send(`
 <!DOCTYPE html>
 <html>
 <head>
     <title>Mapa en Tiempo Real - Teltonika</title>
-    <link rel="stylesheet" href="/leaflet/leaflet.css" />
+    <meta charset="utf-8">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
         #map { height: 100vh; width: 100vw; }
     </style>
@@ -36,10 +35,9 @@ app.get('/', (req, res) => {
 <body>
     <div id="map"></div>
 
-    <script src="/leaflet/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        const map = L.map('map').setView([0, 0], 2); // Vista inicial
-
+        const map = L.map('map').setView([0, 0], 2);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; OpenStreetMap contributors'
         }).addTo(map);
@@ -51,31 +49,25 @@ app.get('/', (req, res) => {
             try {
                 const res = await fetch('/historial');
                 const puntos = await res.json();
-
                 if (puntos.length === 0) return;
 
                 const coords = puntos.map(p => [parseFloat(p.lat), parseFloat(p.lon)]);
                 const ultima = coords[coords.length - 1];
 
-                // Actualizar línea
                 polyline.setLatLngs(coords);
 
-                // Mover o crear marcador
                 if (!marker) {
                     marker = L.marker(ultima).addTo(map);
                 } else {
                     marker.setLatLng(ultima);
                 }
 
-                // Centrar en la última posición
                 map.setView(ultima, 15);
-
-            } catch (error) {
-                console.error("Error actualizando mapa:", error);
+            } catch (err) {
+                console.error("Error actualizando mapa:", err);
             }
         }
 
-        // Actualizar cada segundo
         setInterval(actualizarMapa, 1000);
     </script>
 </body>
@@ -83,10 +75,14 @@ app.get('/', (req, res) => {
     `);
 });
 
-// Recibir datos NMEA
+// Ruta que entrega historial de puntos
+app.get('/historial', (req, res) => {
+    res.json(historialCoordenadas);
+});
+
+// Ruta POST para datos NMEA
 app.post('/gps-data', (req, res) => {
     const body = req.body;
-
     if (!Buffer.isBuffer(body)) {
         return res.status(400).json({ error: 'Cuerpo inválido' });
     }
@@ -101,25 +97,18 @@ app.post('/gps-data', (req, res) => {
             const lon = convertirCoordenadas(partes[4], 'lon');
             const alt = partes[9];
 
-            ultimaLectura = { lat, lon, alt };
-            const timestamp = new Date().toISOString();
-            const nuevaLectura = { lat, lon, alt, timestamp };
+            const nuevaLectura = { lat, lon, alt };
 
-            historialLecturas.push(nuevaLectura);
-            if (historialLecturas.length > 50) {
-                historialLecturas.shift();
+            historialCoordenadas.push(nuevaLectura);
+            if (historialCoordenadas.length > 50) {
+                historialCoordenadas.shift(); // Mantiene solo los últimos 50
             }
 
-            break;
+            break; // Toma solo la primera línea válida
         }
     }
 
     res.send({ message: 'Datos procesados correctamente' });
-});
-
-// Ruta para obtener historial
-app.get('/historial', (req, res) => {
-    res.json(historialLecturas);
 });
 
 // Ruta 404
@@ -127,9 +116,8 @@ app.use((req, res) => {
     res.status(404).send('Ruta no encontrada');
 });
 
-// Puerto
+// Iniciar servidor
 const port = process.env.PORT || 3000;
 app.listen(port, () => {
-    console.log("Servidor escuchando en el puerto {port}");
+    console.log(`Servidor escuchando en el puerto ${port}`);
 });
-
