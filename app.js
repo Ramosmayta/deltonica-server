@@ -28,14 +28,27 @@ app.get('/', (req, res) => {
         `);
     }
 
-    res.send(`
-        <h1>Última posición GPS recibida:</h1>
-        <ul>
-            <li><strong>Latitud:</strong> ${ultimaLectura.lat}</li>
-            <li><strong>Longitud:</strong> ${ultimaLectura.lon}</li>
-            <li><strong>Altitud:</strong> ${ultimaLectura.alt || 'N/A'} metros</li>
-        </ul>
-    `);
+  res.send(`
+    <h1>Última posición GPS recibida:</h1>
+    <ul>
+        <li><strong>Latitud:</strong> ${ultimaLectura.lat}</li>
+        <li><strong>Longitud:</strong> ${ultimaLectura.lon}</li>
+        <li><strong>Altitud:</strong> ${ultimaLectura.alt || 'N/A'} metros</li>
+    </ul>
+
+    <script>
+        const coordenadas = {
+            lat: ${ultimaLectura.lat},
+            lon: ${ultimaLectura.lon}
+        };
+        console.log("📍 Coordenadas GPS recibidas:", coordenadas);
+    </script>
+`);
+
+
+
+
+
 });
 
 // Ruta POST para datos NMEA
