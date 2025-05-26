@@ -3,6 +3,7 @@ const bodyParser = require('body-parser');
 const app = express();
 
 let ultimaLectura = null;
+let historialLecturas = []; // Guardar hasta 50 coordenadas
 
 // Middleware para manejar datos binarios
 app.use(bodyParser.raw({ type: 'application/vnd.teltonika.nmea', limit: '1mb' }));
@@ -21,34 +22,32 @@ function convertirCoordenadas(nmea, direccion) {
 
 // Página principal
 app.get('/', (req, res) => {
-    if (!ultimaLectura) {
-        return res.send(`
-            <h1>Datos GPS de Teltonika</h1>
-            <p>No se han recibido datos aún.</p>
-        `);
-    }
+    res.send(`
+        <h1>Seguimiento GPS</h1>
+        <p>Abre la consola del navegador (F12) para ver las últimas coordenadas GPS recibidas en tiempo real.</p>
 
-  res.send(`
-    <h1>Última posición GPS recibida:</h1>
-    <ul>
-        <li><strong>Latitud:</strong> ${ultimaLectura.lat}</li>
-        <li><strong>Longitud:</strong> ${ultimaLectura.lon}</li>
-        <li><strong>Altitud:</strong> ${ultimaLectura.alt || 'N/A'} metros</li>
-    </ul>
+        <script>
+            async function mostrarHistorial() {
+                try {
+                    const res = await fetch('/historial');
+                    const datos = await res.json();
 
-    <script>
-        const coordenadas = {
-            lat: ${ultimaLectura.lat},
-            lon: ${ultimaLectura.lon}
-        };
-        console.log("📍 Coordenadas GPS recibidas:", coordenadas);
-    </script>
-`);
+                    console.clear();
+                    console.log("📍 Historial de coordenadas (máximo 50):");
 
+                    datos.forEach((punto, i) => {
+                        console.log(\`#\${i + 1} 🕒 \${punto.timestamp} | 🌐 Lat: \${punto.lat}, Lon: \${punto.lon}, ⛰️ Alt: \${punto.alt || 'N/A'}\`);
+                    });
 
+                } catch (err) {
+                    console.error("❌ Error al obtener historial:", err);
+                }
+            }
 
-
-
+            // Ejecutar cada segundo
+            setInterval(mostrarHistorial, 1000);
+        </script>
+    `);
 });
 
 // Ruta POST para datos NMEA
@@ -70,11 +69,24 @@ app.post('/gps-data', (req, res) => {
             const alt = partes[9];
 
             ultimaLectura = { lat, lon, alt };
-            break; // tomamos la primera válida
+            const timestamp = new Date().toISOString();
+            const nuevaLectura = { lat, lon, alt, timestamp };
+
+            historialLecturas.push(nuevaLectura);
+            if (historialLecturas.length > 50) {
+                historialLecturas.shift(); // Mantener solo las últimas 50
+            }
+
+            break; // Solo procesar la primera línea válida
         }
     }
 
     res.send({ message: 'Datos procesados correctamente' });
+});
+
+// Ruta para devolver el historial completo
+app.get('/historial', (req, res) => {
+    res.json(historialLecturas);
 });
 
 // Ruta 404
@@ -87,4 +99,3 @@ const port = process.env.PORT || 3000;
 app.listen(port, () => {
     console.log(`Servidor escuchando en el puerto ${port}`);
 });
-
