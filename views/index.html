@@ -9,42 +9,56 @@
     </style>
 </head>
 <body>
+    <button onclick="usuarioMovioMapa = false">Centrar mapa</button>
+
     <div id="map"></div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        const map = L.map('map').setView([0, 0], 2);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; OpenStreetMap contributors'
-        }).addTo(map);
+    const map = L.map('map').setView([0, 0], 2);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
 
-        let marker = null;
-        let polyline = L.polyline([], { color: 'blue' }).addTo(map);
+    let marker = null;
+    let polyline = L.polyline([], { color: 'blue' }).addTo(map);
 
-        async function actualizarMapa() {
-            try {
-                const res = await fetch('/historial');
-                const puntos = await res.json();
-                if (puntos.length === 0) return;
+    let usuarioMovioMapa = false;
 
-                const coords = puntos.map(p => [parseFloat(p.lat), parseFloat(p.lon)]);
-                const ultima = coords[coords.length - 1];
+    // Detecta si el usuario movió el mapa o hizo zoom
+    map.on('dragstart', () => { usuarioMovioMapa = true; });
+    map.on('zoomstart', () => { usuarioMovioMapa = true; });
 
-                polyline.setLatLngs(coords);
+    async function actualizarMapa() {
+        try {
+            const res = await fetch('/historial');
+            const puntos = await res.json();
+            if (puntos.length === 0) return;
 
-                if (!marker) {
-                    marker = L.marker(ultima).addTo(map);
-                } else {
-                    marker.setLatLng(ultima);
+            const coords = puntos.map(p => [parseFloat(p.lat), parseFloat(p.lon)]);
+            const ultima = coords[coords.length - 1];
+
+            polyline.setLatLngs(coords);
+
+            if (!marker) {
+                marker = L.marker(ultima).addTo(map);
+                if (!usuarioMovioMapa) {
+                    map.setView(ultima, 15);
                 }
-
-                map.setView(ultima, 15);
-            } catch (err) {
-                console.error("Error actualizando mapa:", err);
+            } else {
+                marker.setLatLng(ultima);
+                if (!usuarioMovioMapa) {
+                    map.setView(ultima);
+                }
             }
-        }
 
-        setInterval(actualizarMapa, 1000);
-    </script>
+        } catch (err) {
+            console.error("Error actualizando mapa:", err);
+        }
+    }
+
+    setInterval(actualizarMapa, 1000);
+</script>
+
 </body>
 </html>
