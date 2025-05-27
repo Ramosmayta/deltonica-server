@@ -3,12 +3,15 @@ const bodyParser = require('body-parser');
 const app = express();
 const path = require('path');
 
-let historialCoordenadas = []; // Guarda hasta 50 puntos
+let historialCoordenadas = [];
 
 // Middleware para manejar datos binarios
 app.use(bodyParser.raw({ type: 'application/vnd.teltonika.nmea', limit: '1mb' }));
 
-// Función para convertir coordenadas NMEA a decimal, incluyendo dirección (N/S, E/W)
+// ✅ Agrega esto:
+app.use(express.static(path.join(__dirname, 'views')));
+
+// Función para convertir coordenadas NMEA a decimal
 function convertirCoordenadas(nmea, direccionCardinal, tipo) {
     if (!nmea || !direccionCardinal) return null;
 
@@ -24,17 +27,17 @@ function convertirCoordenadas(nmea, direccionCardinal, tipo) {
     return decimal.toFixed(6);
 }
 
-// Página principal con mapa Leaflet
+// Página principal
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'views', 'index.html'));
 });
 
-// Ruta que entrega historial de puntos
+// Historial
 app.get('/historial', (req, res) => {
     res.json(historialCoordenadas);
 });
 
-// Ruta POST para datos NMEA
+// GPS data
 app.post('/gps-data', (req, res) => {
     const body = req.body;
     if (!Buffer.isBuffer(body)) {
@@ -52,21 +55,20 @@ app.post('/gps-data', (req, res) => {
             const alt = partes[9];
 
             if (lat && lon) {
-                const nuevaLectura = { lat, lon, alt };
-                historialCoordenadas.push(nuevaLectura);
+                historialCoordenadas.push({ lat, lon, alt });
                 if (historialCoordenadas.length > 50) {
-                    historialCoordenadas.shift(); // Mantiene solo los últimos 50
+                    historialCoordenadas.shift();
                 }
             }
 
-            break; // Toma solo la primera línea válida
+            break;
         }
     }
 
     res.send({ message: 'Datos procesados correctamente' });
 });
 
-// Ruta 404
+// 404
 app.use((req, res) => {
     res.status(404).send('Ruta no encontrada');
 });
