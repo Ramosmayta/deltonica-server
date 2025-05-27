@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Mapa en Tiempo Real - Teltonika</title>
+    <meta charset="utf-8">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        #map { height: 100vh; width: 100vw; }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        const map = L.map('map').setView([0, 0], 2);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(map);
+
+        let marker = null;
+        let polyline = L.polyline([], { color: 'blue' }).addTo(map);
+
+        async function actualizarMapa() {
+            try {
+                const res = await fetch('/historial');
+                const puntos = await res.json();
+                if (puntos.length === 0) return;
+
+                const coords = puntos.map(p => [parseFloat(p.lat), parseFloat(p.lon)]);
+                const ultima = coords[coords.length - 1];
+
+                polyline.setLatLngs(coords);
+
+                if (!marker) {
+                    marker = L.marker(ultima).addTo(map);
+                } else {
+                    marker.setLatLng(ultima);
+                }
+
+                map.setView(ultima, 15);
+            } catch (err) {
+                console.error("Error actualizando mapa:", err);
+            }
+        }
+
+        setInterval(actualizarMapa, 1000);
+    </script>
+</body>
+</html>
