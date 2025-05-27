@@ -8,7 +8,7 @@ let historialCoordenadas = [];
 // Middleware para manejar datos binarios
 app.use(bodyParser.raw({ type: 'application/vnd.teltonika.nmea', limit: '1mb' }));
 
-// ✅ Agrega esto:
+//  Agrega esto:
 app.use(express.static(path.join(__dirname, 'views')));
 
 // Función para convertir coordenadas NMEA a decimal
