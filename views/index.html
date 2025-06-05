@@ -5,16 +5,24 @@
     <meta charset="utf-8">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        #map { height: 100vh; width: 100vw; }
+        #map { height: 90vh; width: 100vw; }
+        #controls { padding: 10px; }
+        button { margin-right: 10px; }
     </style>
 </head>
 <body>
+
+<div id="controls">
     <button onclick="usuarioMovioMapa = false">Centrar mapa</button>
+    <button onclick="iniciarGuardado()">Iniciar</button>
+    <button onclick="detenerGuardado()">Stop</button>
+    <button onclick="descargarCoordenadas()">Descargar .txt</button>
+</div>
 
-    <div id="map"></div>
+<div id="map"></div>
 
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
     const map = L.map('map').setView([0, 0], 2);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; OpenStreetMap contributors'
@@ -22,10 +30,11 @@
 
     let marker = null;
     let polyline = L.polyline([], { color: 'blue' }).addTo(map);
-
     let usuarioMovioMapa = false;
 
-    // Detecta si el usuario movió el mapa o hizo zoom
+    let guardando = false;               // Estado de guardado
+    let coordenadasGuardadas = [];      // Coordenadas acumuladas
+
     map.on('dragstart', () => { usuarioMovioMapa = true; });
     map.on('zoomstart', () => { usuarioMovioMapa = true; });
 
@@ -42,14 +51,15 @@
 
             if (!marker) {
                 marker = L.marker(ultima).addTo(map);
-                if (!usuarioMovioMapa) {
-                    map.setView(ultima, 15);
-                }
+                if (!usuarioMovioMapa) map.setView(ultima, 15);
             } else {
                 marker.setLatLng(ultima);
-                if (!usuarioMovioMapa) {
-                    map.setView(ultima);
-                }
+                if (!usuarioMovioMapa) map.setView(ultima);
+            }
+
+            // Guardar si está activo
+            if (guardando && ultima) {
+                coordenadasGuardadas.push(ultima);
             }
 
         } catch (err) {
@@ -58,6 +68,35 @@
     }
 
     setInterval(actualizarMapa, 1000);
+
+    // Funciones de control
+    function iniciarGuardado() {
+        guardando = true;
+        console.log("Guardado de coordenadas iniciado.");
+    }
+
+    function detenerGuardado() {
+        guardando = false;
+        console.log("Guardado detenido.");
+    }
+
+    function descargarCoordenadas() {
+        if (coordenadasGuardadas.length === 0) {
+            alert("No hay coordenadas guardadas.");
+            return;
+        }
+
+        const texto = coordenadasGuardadas.map(c => `${c[0]},${c[1]}`).join('\n');
+        const blob = new Blob([texto], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+
+        const enlace = document.createElement('a');
+        enlace.href = url;
+        enlace.download = 'coordenadas.txt';
+        enlace.click();
+
+        URL.revokeObjectURL(url);
+    }
 </script>
 
 </body>
